@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+
+{% block title %}
+Portofolio
+{% endblock %}
+
+{% block main %}
+{% set totals = [] %}
+<table class="table table-striped">
+  <tr style="background: white">
+    <th>Symbol</th>
+    <th>Name</th>
+    <th>Shares</th>
+    <th>Price</th>
+    <th>TOTAL</th>
+  </tr>
+  {% for stock in stocks %}
+  <tr>
+    <td>{{ stock.symbol }}</td>
+    <td>{{ stock.name }}</td>
+    <td>{{ stock.shares }}</td>
+    {% set price = lookup(stock.symbol).get("price") %}
+    {% set price_total = price * stock.shares %}
+    <!-- {{ totals.append(price_total) }} -->
+    <td>{{ usd(price) }}</td>
+    <td>{{ usd(price_total) }}</td>
+  </tr>
+  {% endfor %}
+  <tr style="background: white">
+    <td>CASH</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>{{ usd(cash) }}</td>
+  </tr>
+  </tr>
+  <tr style="background: white">
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td><b>{{ usd(totals|sum() + cash)}}</b></td>
+  </tr>
+</table>
+<button onclick="location.href = '/deposit';" type="button" class="btn btn-success">Add Cash</button>
+{% endblock %}
