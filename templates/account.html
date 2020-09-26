@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}
+Account
+{% endblock %}
+
+{% block main %}
+<div class="card border-primary mb-3 text-left mx-auto" style="max-width: 20rem;">
+  <div class="card-header">CREDENTIALS</div>
+  <div class="card-body">
+    <div class="container">
+      <div class="row">
+        <div class="col-sm">
+          <h4 class="card-title">AlexBTO</h4>
+          <h6 class="card-subtitle mb-2 text-muted">USERNAME</h6>
+        </div>
+        <div class="col-sm">
+          <button onclick="location.href = '/username';" type="button" class="btn btn-outline-info">CHANGE</button>
+        </div>
+      </div>
+      <div class="row mt-5">
+        <div class="col-sm">
+          <h4 class="card-title">*********</h4>
+          <h6 class="card-subtitle mb-2 text-muted">PASSWORD</h6>
+        </div>
+        <div class="col-sm">
+          <button onclick="location.href = '/password';" type="button" class="btn btn-outline-info">CHANGE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

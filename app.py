@@ -12,14 +12,13 @@ from helpers import apology, login_required, lookup, usd
 
 # Configure application
 app = Flask(__name__)
+app.secret_key = '3gnd43k19'
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-app.config["SESSION_FILE_DIR"] = mkdtemp()
+
 # Ensure responses aren't cached
-
-
 @app.after_request
 def after_request(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -28,7 +27,7 @@ def after_request(response):
     return response
 
 
-# Enable calling a python function from jinja
+# Enable function call from jinja
 app.jinja_env.globals.update(lookup=lookup)
 app.jinja_env.globals.update(usd=usd)
 
@@ -43,7 +42,7 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Configure CS50 Library to use SQLite database
-db = SQL("postgres://eaklgtsfetwavm:4d94355af81bb1816ca6b712b63251ef5dfd0f1b6a8ce0c8e79b6a0606f0eb12@ec2-52-200-82-50.compute-1.amazonaws.com:5432/dchcc7bsmoj5hi")
+db = SQL("sqlite:///finance.db")
 
 # Make sure API key is set
 if not os.environ.get("API_KEY"):
@@ -72,20 +71,25 @@ def buy():
         symbol = request.form.get("symbol")
         shares = float(request.form.get("shares"))
         quoted = lookup(symbol)
-        user = session["user_id"]
 
+        # Check for valid symbol
+        if quoted == None:
+            flash('Invalid symbol', 'error')
+            return render_template('buy.html')
+
+        price = quoted.get('price')
+        user = session["user_id"]
+        cost = quoted.get('price') * shares
         """Get user's cash"""
         cash = db.execute(
             "SELECT cash FROM users WHERE id == :user", user=user)[0].get('cash')
 
-        """Check if stock exsists and if it does check that user has enough money to buy"""
-        if quoted == None:
-            return apology("invalid symbol")
-        elif cash < quoted.get('price'):
-            return apology("not enough cash")
+        """Check if user has enough funds"""
+        if cash < cost:
+            flash('Not enough funds to buy shares', 'error')
+            return render_template('buy.html')
         else:
             name = quoted.get('name')
-            price = quoted.get('price')
             symbol = quoted.get('symbol')
             date = datetime.now().replace(second=0, microsecond=0)
             new_cash = cash - (shares * price)
@@ -105,6 +109,7 @@ def buy():
                     "SELECT shares FROM shareholders WHERE symbol=:symbol AND user=:user", symbol=symbol, user=user)[0].get("shares")
                 db.execute("UPDATE shareholders SET shares=:shares WHERE symbol=:symbol AND user=:user",
                            shares=shares, symbol=symbol, user=user)
+                flash('Bought!', 'success')
             return redirect("/")
 
 
@@ -130,11 +135,13 @@ def login():
 
         # Ensure username was submitted
         if not request.form.get("username"):
-            return apology("must provide username", 403)
+            flash('Must provide username', 'error')
+            return render_template("login.html")
 
         # Ensure password was submitted
         elif not request.form.get("password"):
-            return apology("must provide password", 403)
+            flash("Must provide password", 'error')
+            return render_template("login.html")
 
         # Query database for username
         rows = db.execute("SELECT * FROM users WHERE username = :username",
@@ -142,7 +149,8 @@ def login():
 
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
-            return apology("invalid username and/or password", 403)
+            flash('Invalid username and/or password', 'error')
+            return render_template("login.html")
 
         # Remember which user has logged in
         session["user_id"] = rows[0]["id"]
@@ -176,7 +184,8 @@ def quote():
         symbol = request.form.get("symbol")
         quoted = lookup(symbol)
         if quoted == None:
-            return apology("invalid symbol")
+            flash('Invalid symbol', 'error')
+            return render_template('quote.html')
         else:
             name = quoted.get('name')
             price = usd(quoted.get('price'))
@@ -191,6 +200,11 @@ def register():
         return render_template('register.html')
     else:
         username = request.form.get("username")
+        usernames = db.execute(
+            "SELECT username FROM users WHERE username=:username", username=username)
+        if usernames:
+            flash('Username already exsists', 'error')
+            return render_template('register.html')
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
         if password == confirm_password:
@@ -199,7 +213,39 @@ def register():
                        username=username, hash=password)
             return redirect("/login")
         else:
-            return apology("password must match")
+            flash('Both password inputs must match', 'error')
+            return render_template('register.html')
+
+
+@app.route("/account", methods=["GET", "POST"])
+@login_required
+def account():
+    """View and change account settings"""
+    return render_template("account.html")
+
+
+@app.route("/password", methods=["GET", "POST"])
+@login_required
+def password():
+    """Change account password"""
+    if request.method == "GET":
+        return render_template("password.html")
+    else:
+        rows = db.execute("SELECT * FROM users WHERE id = :id",
+                          id=session["user_id"])
+        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+            flash('Incorrect Password', 'error')
+            return render_template("password.html")
+        elif request.form.get("new_password") != request.form.get("confirm_password"):
+            flash('Both password inputs must match', 'error')
+            return render_template("password.html")
+        else:
+            password = generate_password_hash(
+                request.form.get("new_password"))
+            db.execute("UPDATE users SET hash=:password WHERE id=:id",
+                       password=password, id=session["user_id"])
+            flash('Password changed successfully', 'success')
+            return redirect("/account")
 
 
 @app.route("/sell", methods=["GET", "POST"])
@@ -221,7 +267,8 @@ def sell():
         user_shares = db.execute(
             "SELECT shares FROM shareholders WHERE symbol=:symbol AND user=:user", symbol=symbol, user=user)[0].get("shares")
         if shares > user_shares:
-            return apology("you own less shares than you're trying to sell")
+            flash('Number of shares exceed portofolio', 'error')
+            return render_template('sell.html')
         else:
             cash = db.execute("SELECT cash FROM users WHERE id=:user", user=user)[
                 0].get("cash")
@@ -234,6 +281,7 @@ def sell():
             db.execute("UPDATE shareholders SET shares=:shares WHERE symbol=:symbol AND user=:user",
                        shares=shares, symbol=symbol, user=user)
             db.execute("DELETE FROM shareholders WHERE shares=0")
+            flash('Sold!', 'success')
             return redirect("/")
 
 
@@ -246,10 +294,11 @@ def deposit():
     else:
         funds = float(request.form.get("funds"))
         cash = db.execute(
-            "SELECT cash FROM users WHERE id=:id", id=session["user_id"])[0].get("shares")
+            "SELECT cash FROM users WHERE id=:id", id=session["user_id"])[0].get("cash")
         cash = funds + cash
         db.execute("UPDATE users SET cash=:cash WHERE id=:id",
                    cash=cash, id=session["user_id"])
+        flash('You successfully deposited funds!', 'success')
         return redirect("/")
 
 
