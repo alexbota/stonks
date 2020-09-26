@@ -1,5 +1,5 @@
 # Trading Platform
-These is a simulated trading platform made as a project for CS50x with real time financial data on the stock market.
+A simulated trading platform made as a project for CS50x with real time financial data on the stock market.
 
 ## Getting Started
 
