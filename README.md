@@ -10,7 +10,7 @@ how to deploy the project on a live system.
 
 In order to get this running you need to:
 
-* Install the latest version of python from [Python](https://www.python.org/)
+* Install the latest version of [Python](https://www.python.org/)
 * Install python extension for your code editor
 * Install Flask
 * Create an account on [IEX](https://iexcloud.io/) in order to get an API Key
