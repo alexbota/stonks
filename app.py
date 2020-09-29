@@ -12,7 +12,7 @@ from helpers import apology, login_required, lookup, usd
 
 # Configure application
 app = Flask(__name__)
-app.secret_key = '3gnd43k19'
+app.secret_key = '32k32'
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -53,11 +53,10 @@ if not os.environ.get("API_KEY"):
 @login_required
 def index():
     """Show portfolio of stocks"""
-    user = session["user_id"]
     cash = db.execute(
-        "SELECT cash FROM users WHERE id=:user", user=user)[0].get("cash")
+        "SELECT cash FROM users WHERE id=:id", id=session["user_id"])[0].get("cash")
     stocks = db.execute(
-        "SELECT * FROM shareholders WHERE user=:user ORDER BY symbol", user=user)
+        "SELECT * FROM shareholders WHERE id=:id ORDER BY symbol", id=session["user_id"])
     return render_template("index.html", cash=cash, stocks=stocks)
 
 
@@ -203,7 +202,7 @@ def register():
         usernames = db.execute(
             "SELECT username FROM users WHERE username=:username", username=username)
         if usernames:
-            flash('Username already exsists', 'error')
+            flash('Username already taken', 'error')
             return render_template('register.html')
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
@@ -213,7 +212,7 @@ def register():
                        username=username, hash=password)
             return redirect("/login")
         else:
-            flash('Both password inputs must match', 'error')
+            flash('Both password fields must match', 'error')
             return render_template('register.html')
 
 
@@ -221,7 +220,8 @@ def register():
 @login_required
 def account():
     """View and change account settings"""
-    return render_template("account.html")
+    return render_template("account.html", username=db.execute(
+        "SELECT username FROM users WHERE id=:id", id=session["user_id"])[0].get("username"))
 
 
 @app.route("/password", methods=["GET", "POST"])
@@ -237,7 +237,7 @@ def password():
             flash('Incorrect Password', 'error')
             return render_template("password.html")
         elif request.form.get("new_password") != request.form.get("confirm_password"):
-            flash('Both password inputs must match', 'error')
+            flash('Both password fields must match', 'error')
             return render_template("password.html")
         else:
             password = generate_password_hash(
@@ -245,6 +245,28 @@ def password():
             db.execute("UPDATE users SET hash=:password WHERE id=:id",
                        password=password, id=session["user_id"])
             flash('Password changed successfully', 'success')
+            return redirect("/account")
+
+
+@app.route("/username", methods=["GET", "POST"])
+@login_required
+def username():
+    """Change account username"""
+    if request.method == "GET":
+        return render_template("username.html")
+    else:
+        rows = db.execute("SELECT * FROM users WHERE id = :id",
+                          id=session["user_id"])
+        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+            flash('Incorrect Password', 'error')
+            return render_template("username.html")
+        elif db.execute("SELECT username FROM users WHERE username=:username", username=request.form.get("username")):
+            flash('Username already taken', 'error')
+            return render_template('username.html')
+        else:
+            db.execute("UPDATE users SET username=:username WHERE id=:id",
+                       username=request.form.get("username"), id=session["user_id"])
+            flash('Username changed successfully', 'success')
             return redirect("/account")
 
 
