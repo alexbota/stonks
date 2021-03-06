@@ -42,7 +42,7 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///finance.db")
+db = SQL(os.getenv("DATABASE_URL"))
 
 # Make sure API key is set
 if not os.environ.get("API_KEY"):
@@ -53,10 +53,14 @@ if not os.environ.get("API_KEY"):
 @login_required
 def index():
     """Show portfolio of stocks"""
+    user = session["user_id"]
     cash = db.execute(
-        "SELECT cash FROM users WHERE id=:id", id=session["user_id"])[0].get("cash")
+        "SELECT cash FROM users WHERE id=:user", user=user)[0].get("cash")
     stocks = db.execute(
-        "SELECT * FROM shareholders WHERE id=:id ORDER BY symbol", id=session["user_id"])
+        "SELECT * FROM shareholders WHERE user=:user ORDER BY symbol", user=user)
+    # for stock in stocks:
+    #     stock["price"] = lookup(stock["symbol"]).get("price")
+    #     price_total = stock["price"] * stock["shares"]
     return render_template("index.html", cash=cash, stocks=stocks)
 
 
@@ -180,16 +184,12 @@ def quote():
     if request.method == 'GET':
         return render_template('quote.html')
     else:
-        symbol = request.form.get("symbol")
-        quoted = lookup(symbol)
+        quoted = lookup(request.form.get("symbol"))
         if quoted == None:
             flash('Invalid symbol', 'error')
             return render_template('quote.html')
         else:
-            name = quoted.get('name')
-            price = usd(quoted.get('price'))
-            symbol = quoted.get('symbol')
-            return render_template("/quoted.html", name=name, price=price, symbol=symbol)
+            return render_template("/quoted.html", name=quoted['name'], price=quoted['price'], symbol=quoted['symbol'])
 
 
 @app.route("/register", methods=["GET", "POST"])

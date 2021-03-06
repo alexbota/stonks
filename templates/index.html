@@ -24,7 +24,7 @@ Portofolio
       <td>{{ stock.shares }}</td>
       {% set price = lookup(stock.symbol).get("price") %}
       {% set price_total = price * stock.shares %}
-      <!-- {{ totals.append(price_total) }} -->
+      {{ totals.append(price_total) }}
       <td>{{ usd(price) }}</td>
       <td>{{ usd(price_total) }}</td>
     </tr>
